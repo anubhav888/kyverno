@@ -15,6 +15,8 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/auth"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -33,12 +35,12 @@ const (
 )
 
 type validateManifestHandler struct {
-	client engineapi.Client
+	client dclient.Interface
 }
 
 func NewValidateManifestHandler(
 	policyContext engineapi.PolicyContext,
-	client engineapi.Client,
+	client dclient.Interface,
 ) (handlers.Handler, error) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		return nil, nil
@@ -171,7 +173,12 @@ func (h validateManifestHandler) verifyManifest(
 }
 
 func (h validateManifestHandler) checkDryRunPermission(ctx context.Context, kind, namespace string) (bool, error) {
-	return h.client.CanI(ctx, kind, namespace, "create", "", config.KyvernoServiceAccountName())
+	canI := auth.NewCanI(h.client.Discovery(), h.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "create", "", config.KyvernoServiceAccountName())
+	ok, err := canI.RunAccessCheck(ctx)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
 }
 
 func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {

@@ -29,28 +29,20 @@ type controller struct {
 	renewer tls.CertRenewer
 
 	// listers
-	caLister  corev1listers.SecretLister
-	tlsLister corev1listers.SecretLister
+	secretLister corev1listers.SecretLister
 
 	// queue
-	queue      workqueue.RateLimitingInterface
-	caEnqueue  controllerutils.EnqueueFunc
-	tlsEnqueue controllerutils.EnqueueFunc
+	queue         workqueue.RateLimitingInterface
+	secretEnqueue controllerutils.EnqueueFunc
 }
 
-func NewController(
-	caInformer corev1informers.SecretInformer,
-	tlsInformer corev1informers.SecretInformer,
-	certRenewer tls.CertRenewer,
-) controllers.Controller {
+func NewController(secretInformer corev1informers.SecretInformer, certRenewer tls.CertRenewer) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		renewer:    certRenewer,
-		caLister:   caInformer.Lister(),
-		tlsLister:  tlsInformer.Lister(),
-		queue:      queue,
-		caEnqueue:  controllerutils.AddDefaultEventHandlers(logger, caInformer.Informer(), queue),
-		tlsEnqueue: controllerutils.AddDefaultEventHandlers(logger, tlsInformer.Informer(), queue),
+		renewer:       certRenewer,
+		secretLister:  secretInformer.Lister(),
+		queue:         queue,
+		secretEnqueue: controllerutils.AddDefaultEventHandlers(logger, secretInformer.Informer(), queue),
 	}
 	return &c
 }
@@ -58,7 +50,7 @@ func NewController(
 func (c *controller) Run(ctx context.Context, workers int) {
 	// we need to enqueue our secrets in case they don't exist yet in the cluster
 	// this way we ensure the reconcile happens (hence renewal/creation)
-	if err := c.tlsEnqueue(&corev1.Secret{
+	if err := c.secretEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KyvernoNamespace(),
 			Name:      tls.GenerateTLSPairSecretName(),
@@ -66,7 +58,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	}); err != nil {
 		logger.Error(err, "failed to enqueue secret", "name", tls.GenerateTLSPairSecretName())
 	}
-	if err := c.caEnqueue(&corev1.Secret{
+	if err := c.secretEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KyvernoNamespace(),
 			Name:      tls.GenerateRootCASecretName(),
@@ -93,29 +85,15 @@ func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 	for {
 		select {
 		case <-certsRenewalTicker.C:
-			{
-				list, err := c.caLister.List(labels.Everything())
-				if err == nil {
-					for _, secret := range list {
-						if err := c.caEnqueue(secret); err != nil {
-							logger.Error(err, "failed to enqueue secret", "name", secret.Name)
-						}
+			list, err := c.secretLister.List(labels.Everything())
+			if err == nil {
+				for _, secret := range list {
+					if err := c.secretEnqueue(secret); err != nil {
+						logger.Error(err, "failed to enqueue secret", "name", secret.Name)
 					}
-				} else {
-					logger.Error(err, "falied to list secrets")
 				}
-			}
-			{
-				list, err := c.tlsLister.List(labels.Everything())
-				if err == nil {
-					for _, secret := range list {
-						if err := c.tlsEnqueue(secret); err != nil {
-							logger.Error(err, "failed to enqueue secret", "name", secret.Name)
-						}
-					}
-				} else {
-					logger.Error(err, "falied to list secrets")
-				}
+			} else {
+				logger.Error(err, "falied to list secrets")
 			}
 		case <-ctx.Done():
 			return

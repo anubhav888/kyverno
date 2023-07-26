@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -324,12 +324,13 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 }
 
 func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr VariableResolver) jsonUtils.Action {
-	isDeleteRequest := isDeleteRequest(ctx)
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
 		}
+
+		isDeleteRequest := IsDeleteRequest(ctx)
 
 		vars := regex.RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
@@ -403,14 +404,16 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 	})
 }
 
-func isDeleteRequest(ctx context.EvalInterface) bool {
+func IsDeleteRequest(ctx context.EvalInterface) bool {
 	if ctx == nil {
 		return false
 	}
+
 	operation, err := ctx.Query("request.operation")
 	if err == nil && operation == "DELETE" {
 		return true
 	}
+
 	return false
 }
 

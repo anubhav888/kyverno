@@ -109,7 +109,6 @@ spec:
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite .Values.features .Values.reportsController.featuresOverride)
               "admissionReports"
-              "aggregateReports"
               "backgroundScan"
               "configMapCaching"
               "deferredLoading"
@@ -125,10 +124,6 @@ spec:
             {{- end }}
             {{- end }}
           env:
-          - name: KYVERNO_SERVICEACCOUNT_NAME
-            value: {{ template "kyverno.reports-controller.serviceAccountName" . }}
-          - name: KYVERNO_DEPLOYMENT
-            value: {{ template "kyverno.reports-controller.name" . }}
           - name: INIT_CONFIG
             value: {{ template "kyverno.config.configMapName" . }}
           - name: METRICS_CONFIG

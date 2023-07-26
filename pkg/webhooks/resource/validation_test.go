@@ -9,7 +9,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -1053,16 +1052,14 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
-	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		registryclient.NewOrDie(),
 		factories.DefaultContextLoaderFactory(nil),
 		nil,
-		"",
 	)
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
@@ -1072,16 +1069,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := kubeutils.BytesToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 
-			ctx, err := engine.NewPolicyContext(
-				jp,
-				*resourceUnstructured,
-				kyvernov1.Create,
-				nil,
-				cfg,
-			)
-			assert.NilError(t, err)
-
-			ctx = ctx.WithPolicy(&policy).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
+			ctx := engine.NewPolicyContext(jp, kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured).WithNamespaceLabels(tc.rawResourceNamespaceLabels)
 			er := eng.Validate(
 				context.TODO(),
 				ctx,
@@ -1145,26 +1133,16 @@ func Test_RuleSelector(t *testing.T) {
 
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
-	ctx, err := engine.NewPolicyContext(
-		jp,
-		*resourceUnstructured,
-		kyvernov1.Create,
-		nil,
-		cfg,
-	)
-	assert.NilError(t, err)
+	ctx := engine.NewPolicyContext(jp, kyvernov1.Create).WithPolicy(&policy).WithNewResource(*resourceUnstructured)
 
-	ctx = ctx.WithPolicy(&policy)
-	rclient := registryclient.NewOrDie()
 	eng := engine.NewEngine(
 		cfg,
 		config.NewDefaultMetricsConfiguration(),
 		jp,
 		nil,
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+		registryclient.NewOrDie(),
 		factories.DefaultContextLoaderFactory(nil),
 		nil,
-		"",
 	)
 	resp := eng.Validate(
 		context.TODO(),

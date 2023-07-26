@@ -12,14 +12,6 @@
                 "--serverIP=<SERVER-IP>:9443",
                 "-v=2",
             ],
-            "env": {
-                "KYVERNO_NAMESPACE": "kyverno",
-                "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-admission-controller",
-                "KYVERNO_DEPLOYMENT": "dummy",
-                "KYVERNO_POD_NAME": "dummy",
-                "INIT_CONFIG": "kyverno",
-                "METRICS_CONFIG": "kyverno-metrics",
-            }
         },
         {
             "name": "Launch Reports Controller",
@@ -30,14 +22,6 @@
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
             ],
-            "env": {                 
-                "KYVERNO_NAMESPACE": "kyverno",
-                "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-reports-controller",
-                "KYVERNO_DEPLOYMENT": "dummy",
-                "KYVERNO_POD_NAME": "dummy",
-                "INIT_CONFIG": "kyverno",
-                "METRICS_CONFIG": "kyverno-metrics",
-            }
         },
         {
             "name": "Launch Background Controller",
@@ -48,14 +32,6 @@
             "args": [
                 "--kubeconfig=${userHome}/.kube/config",
             ],
-            "env": {                 
-                "KYVERNO_NAMESPACE": "kyverno",
-                "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-background-controller",
-                "KYVERNO_DEPLOYMENT": "dummy",
-                "KYVERNO_POD_NAME": "dummy",
-                "INIT_CONFIG": "kyverno",
-                "METRICS_CONFIG": "kyverno-metrics",
-            }
         },
         {
             "name": "Launch Cleanup Controller",
@@ -67,14 +43,6 @@
                 "--kubeconfig=${userHome}/.kube/config",
                 "--serverIP=<SERVER-IP>:9443",
             ],
-            "env": {                 
-                "KYVERNO_NAMESPACE": "kyverno",
-                "KYVERNO_SERVICEACCOUNT_NAME": "kyverno-cleanup-controller",
-                "KYVERNO_DEPLOYMENT": "dummy",
-                "KYVERNO_POD_NAME": "dummy",
-                "INIT_CONFIG": "kyverno",
-                "METRICS_CONFIG": "kyverno-metrics",
-            }
         },
         {
             "name": "Launch CLI",

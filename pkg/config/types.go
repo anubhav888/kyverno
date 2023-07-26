@@ -87,14 +87,13 @@ func newFilter(kind, namespace, name string) filter {
 	}
 }
 
-var submatchallRegex = regexp.MustCompile(`\[([^\[\]]*)\]`)
-
 // ParseKinds parses the kinds if a single string contains comma separated kinds
 // {"1,2,3","4","5"} => {"1","2","3","4","5"}
 func parseKinds(in string) []filter {
 	resources := []filter{}
 	var resource filter
-	submatchall := submatchallRegex.FindAllString(in, -1)
+	re := regexp.MustCompile(`\[([^\[\]]*)\]`)
+	submatchall := re.FindAllString(in, -1)
 	for _, element := range submatchall {
 		element = strings.Trim(element, "[")
 		element = strings.Trim(element, "]")

@@ -81,7 +81,7 @@ func TestCosignKeyless(t *testing.T) {
 
 	rc, err := registryclient.New()
 	assert.NilError(t, err)
-	opts.Client = rc
+	opts.RegistryClient = rc
 
 	verifier := &cosignVerifier{}
 	_, err = verifier.VerifySignature(context.TODO(), opts)
