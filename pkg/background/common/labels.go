@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -68,8 +67,8 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 
 func managedBy(labels map[string]string) {
 	// ManagedBy label
-	key := kyverno.LabelAppManagedBy
-	value := kyverno.ValueKyvernoApp
+	key := kyvernov1.LabelAppManagedBy
+	value := kyvernov1.ValueKyvernoApp
 	val, ok := labels[key]
 	if ok {
 		if val != value {

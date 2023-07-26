@@ -49,7 +49,8 @@ type IDiscovery interface {
 	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	OpenAPISchema() (*openapiv2.Document, error)
-	CachedDiscoveryInterface() discovery.CachedDiscoveryInterface
+	DiscoveryCache() discovery.CachedDiscoveryInterface
+	DiscoveryInterface() discovery.DiscoveryInterface
 }
 
 // apiResourceWithListGV is a wrapper for metav1.APIResource with the group-version of its metav1.APIResourceList
@@ -63,8 +64,13 @@ type serverResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
 }
 
-// CachedDiscoveryInterface gets the discovery client cache
-func (c serverResources) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
+// DiscoveryCache gets the discovery client cache
+func (c serverResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
+	return c.cachedClient
+}
+
+// DiscoveryInterface gets the discovery client
+func (c serverResources) DiscoveryInterface() discovery.DiscoveryInterface {
 	return c.cachedClient
 }
 

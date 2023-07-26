@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/jmespath/go-jmespath"
 	"github.com/spf13/cobra"
 )
 

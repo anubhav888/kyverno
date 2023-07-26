@@ -24,6 +24,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -142,6 +143,32 @@ func (c *controller) enqueueResources() {
 	for _, key := range c.metadataCache.GetAllResourceKeys() {
 		c.queue.Add(key)
 	}
+}
+
+// TODO: utils
+func (c *controller) fetchClusterPolicies() ([]kyvernov1.PolicyInterface, error) {
+	var policies []kyvernov1.PolicyInterface
+	if cpols, err := c.cpolLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, cpol := range cpols {
+			policies = append(policies, cpol)
+		}
+	}
+	return policies, nil
+}
+
+// TODO: utils
+func (c *controller) fetchPolicies(namespace string) ([]kyvernov1.PolicyInterface, error) {
+	var policies []kyvernov1.PolicyInterface
+	if pols, err := c.polLister.Policies(namespace).List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, pol)
+		}
+	}
+	return policies, nil
 }
 
 func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
@@ -348,12 +375,12 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		}
 	}
 	// load all policies
-	policies, err := utils.FetchClusterPolicies(c.cpolLister)
+	policies, err := c.fetchClusterPolicies()
 	if err != nil {
 		return err
 	}
 	if namespace != "" {
-		pols, err := utils.FetchPolicies(c.polLister, namespace)
+		pols, err := c.fetchPolicies(namespace)
 		if err != nil {
 			return err
 		}

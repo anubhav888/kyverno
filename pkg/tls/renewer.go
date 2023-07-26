@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -29,7 +30,7 @@ const (
 
 type CertValidator interface {
 	// ValidateCert checks the certificates validity
-	ValidateCert(context.Context) (bool, error)
+	ValidateCert() (bool, error)
 }
 
 type CertRenewer interface {
@@ -44,6 +45,7 @@ type CertRenewer interface {
 // renews RootCA at the given interval
 type certRenewer struct {
 	client              controllerutils.ObjectClient[*corev1.Secret]
+	lister              corev1listers.SecretNamespaceLister
 	certRenewalInterval time.Duration
 	caValidityDuration  time.Duration
 	tlsValidityDuration time.Duration
@@ -55,6 +57,7 @@ type certRenewer struct {
 // NewCertRenewer returns an instance of CertRenewer
 func NewCertRenewer(
 	client controllerutils.ObjectClient[*corev1.Secret],
+	lister corev1listers.SecretNamespaceLister,
 	certRenewalInterval,
 	caValidityDuration,
 	tlsValidityDuration time.Duration,
@@ -62,6 +65,7 @@ func NewCertRenewer(
 ) *certRenewer {
 	return &certRenewer{
 		client:              client,
+		lister:              lister,
 		certRenewalInterval: certRenewalInterval,
 		caValidityDuration:  caValidityDuration,
 		tlsValidityDuration: tlsValidityDuration,
@@ -71,7 +75,7 @@ func NewCertRenewer(
 
 // RenewCA renews the CA certificate if needed
 func (c *certRenewer) RenewCA(ctx context.Context) error {
-	secret, key, certs, err := c.decodeCASecret(ctx)
+	secret, key, certs, err := c.decodeCASecret()
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to read CA")
 		return err
@@ -111,12 +115,12 @@ func (c *certRenewer) RenewCA(ctx context.Context) error {
 
 // RenewTLS renews the TLS certificate if needed
 func (c *certRenewer) RenewTLS(ctx context.Context) error {
-	_, caKey, caCerts, err := c.decodeCASecret(ctx)
+	_, caKey, caCerts, err := c.decodeCASecret()
 	if err != nil {
 		logger.Error(err, "failed to read CA")
 		return err
 	}
-	secret, _, cert, err := c.decodeTLSSecret(ctx)
+	secret, _, cert, err := c.decodeTLSSecret()
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to read TLS")
 		return err
@@ -153,28 +157,28 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 }
 
 // ValidateCert validates the CA Cert
-func (c *certRenewer) ValidateCert(ctx context.Context) (bool, error) {
-	_, _, caCerts, err := c.decodeCASecret(ctx)
+func (c *certRenewer) ValidateCert() (bool, error) {
+	_, _, caCerts, err := c.decodeCASecret()
 	if err != nil {
 		return false, err
 	}
-	_, _, cert, err := c.decodeTLSSecret(ctx)
+	_, _, cert, err := c.decodeTLSSecret()
 	if err != nil {
 		return false, err
 	}
 	return validateCert(time.Now(), cert, caCerts...), nil
 }
 
-func (c *certRenewer) getSecret(ctx context.Context, name string) (*corev1.Secret, error) {
-	if s, err := c.client.Get(ctx, name, metav1.GetOptions{}); err != nil {
+func (c *certRenewer) getSecret(name string) (*corev1.Secret, error) {
+	if s, err := c.lister.Get(name); err != nil {
 		return nil, err
 	} else {
 		return s, nil
 	}
 }
 
-func (c *certRenewer) decodeSecret(ctx context.Context, name string) (*corev1.Secret, *rsa.PrivateKey, []*x509.Certificate, error) {
-	secret, err := c.getSecret(ctx, name)
+func (c *certRenewer) decodeSecret(name string) (*corev1.Secret, *rsa.PrivateKey, []*x509.Certificate, error) {
+	secret, err := c.getSecret(name)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -197,12 +201,12 @@ func (c *certRenewer) decodeSecret(ctx context.Context, name string) (*corev1.Se
 	return secret, key, pemToCertificates(certBytes), nil
 }
 
-func (c *certRenewer) decodeCASecret(ctx context.Context) (*corev1.Secret, *rsa.PrivateKey, []*x509.Certificate, error) {
-	return c.decodeSecret(ctx, GenerateRootCASecretName())
+func (c *certRenewer) decodeCASecret() (*corev1.Secret, *rsa.PrivateKey, []*x509.Certificate, error) {
+	return c.decodeSecret(GenerateRootCASecretName())
 }
 
-func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, *rsa.PrivateKey, *x509.Certificate, error) {
-	secret, key, certs, err := c.decodeSecret(ctx, GenerateTLSPairSecretName())
+func (c *certRenewer) decodeTLSSecret() (*corev1.Secret, *rsa.PrivateKey, *x509.Certificate, error) {
+	secret, key, certs, err := c.decodeSecret(GenerateTLSPairSecretName())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -217,7 +221,7 @@ func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, *rsa
 
 func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.PrivateKey, certs ...*x509.Certificate) error {
 	logger := logger.WithValues("name", name, "namespace", config.KyvernoNamespace())
-	secret, err := c.getSecret(ctx, name)
+	secret, err := c.getSecret(name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		logger.Error(err, "failed to get CA secret")
 		return err
@@ -228,7 +232,7 @@ func (c *certRenewer) writeSecret(ctx context.Context, name string, key *rsa.Pri
 				Name:      name,
 				Namespace: config.KyvernoNamespace(),
 				Labels: map[string]string{
-					managedByLabel: kyverno.ValueKyvernoApp,
+					managedByLabel: kyvernov1.ValueKyvernoApp,
 				},
 			},
 			Type: corev1.SecretTypeTLS,

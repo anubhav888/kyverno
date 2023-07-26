@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"golang.org/x/exp/slices"
@@ -127,7 +126,7 @@ func GetRequestedControllers(meta *metav1.ObjectMeta) []string {
 	if annotations == nil {
 		return nil
 	}
-	controllers, ok := annotations[kyverno.PodControllersAnnotation]
+	controllers, ok := annotations[kyvernov1.PodControllersAnnotation]
 	if !ok || controllers == "" {
 		return nil
 	}
@@ -242,7 +241,7 @@ func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
 		desiredControllers = "none"
 	}
 	ann := p.GetAnnotations()
-	actualControllers, ok := ann[kyverno.PodControllersAnnotation]
+	actualControllers, ok := ann[kyvernov1.PodControllersAnnotation]
 	if !ok || !applyAutoGen {
 		actualControllers = desiredControllers
 	} else {

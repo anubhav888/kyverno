@@ -3,8 +3,7 @@ package images
 import (
 	"context"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/sigstore/cosign/pkg/oci/remote"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 type ImageVerifier interface {
@@ -15,15 +14,9 @@ type ImageVerifier interface {
 	FetchAttestations(ctx context.Context, opts Options) (*Response, error)
 }
 
-type Client interface {
-	Keychain() authn.Keychain
-	RefreshKeychainPullSecrets(ctx context.Context) error
-	BuildRemoteOption(context.Context) remote.Option
-}
-
 type Options struct {
 	ImageRef             string
-	Client               Client
+	RegistryClient       registryclient.Client
 	FetchAttestations    bool
 	Key                  string
 	Cert                 string
@@ -37,7 +30,6 @@ type Options struct {
 	RekorURL             string
 	SignatureAlgorithm   string
 	PredicateType        string
-	Type                 string
 	Identities           string
 }
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -25,11 +26,7 @@ type apiCall struct {
 	jp      jmespath.Interface
 	entry   kyvernov1.ContextEntry
 	jsonCtx enginecontext.Interface
-	client  ClientInterface
-}
-
-type ClientInterface interface {
-	RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error)
+	client  dclient.Interface
 }
 
 func New(
@@ -37,7 +34,7 @@ func New(
 	jp jmespath.Interface,
 	entry kyvernov1.ContextEntry,
 	jsonCtx enginecontext.Interface,
-	client ClientInterface,
+	client dclient.Interface,
 ) (*apiCall, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %v", entry)
