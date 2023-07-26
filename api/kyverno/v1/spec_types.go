@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -79,12 +78,6 @@ type Spec struct {
 	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
 	// +optional
 	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
-
-	// Admission controls if rules are applied during admission.
-	// Optional. Default value is "true".
-	// +optional
-	// +kubebuilder:default=true
-	Admission *bool `json:"admission,omitempty" yaml:"admission,omitempty"`
 
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
@@ -193,15 +186,6 @@ func (s *Spec) HasVerifyManifests() bool {
 	return false
 }
 
-// AdmissionProcessingEnabled checks if admission is set to true
-func (s *Spec) AdmissionProcessingEnabled() bool {
-	if s.Admission == nil {
-		return true
-	}
-
-	return *s.Admission
-}
-
 // BackgroundProcessingEnabled checks if background is set to true
 func (s *Spec) BackgroundProcessingEnabled() bool {
 	if s.Background == nil {
@@ -234,8 +218,8 @@ func (s *Spec) IsGenerateExisting() bool {
 }
 
 // GetFailurePolicy returns the failure policy to be applied
-func (s *Spec) GetFailurePolicy(ctx context.Context) FailurePolicyType {
-	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
+func (s *Spec) GetFailurePolicy() FailurePolicyType {
+	if toggle.ForceFailurePolicyIgnore.Enabled() {
 		return Ignore
 	} else if s.FailurePolicy == nil {
 		return Fail

@@ -18,7 +18,7 @@ import (
 
 // FetchClusteredResources retieves the list of clustered resources
 func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets.Set[string], error) {
-	res, err := discovery.ServerPreferredResources(client.Discovery().CachedDiscoveryInterface())
+	res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			err := err.(*discovery.ErrGroupDiscoveryFailed)
@@ -104,4 +104,4 @@ func validateVariables(logger logr.Logger, policy kyvernov2alpha1.CleanupPolicyI
 	return nil
 }
 
-var allowedVariables = regexp.MustCompile(`([a-z_0-9]+)|(target\.|images\.|([a-z_0-9]+\()[^{}])`)
+var allowedVariables = regexp.MustCompile(`target\.|images\.|([a-z_0-9]+\()[^{}]`)

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -69,7 +69,7 @@ func toPolicyResult(status engineapi.RuleStatus) policyreportv1alpha2.PolicyResu
 	return ""
 }
 
-func SeverityFromString(severity string) policyreportv1alpha2.PolicySeverity {
+func severityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	switch severity {
 	case policyreportv1alpha2.SeverityHigh:
 		return policyreportv1alpha2.SeverityHigh
@@ -87,17 +87,17 @@ func EngineResponseToReportResults(response engineapi.EngineResponse) []policyre
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		annotations := response.Policy().GetAnnotations()
 		result := policyreportv1alpha2.PolicyReportResult{
-			Source:  kyverno.ValueKyvernoApp,
+			Source:  kyvernov1.ValueKyvernoApp,
 			Policy:  key,
 			Rule:    ruleResult.Name(),
 			Message: ruleResult.Message(),
 			Result:  toPolicyResult(ruleResult.Status()),
-			Scored:  annotations[kyverno.AnnotationPolicyScored] != "false",
+			Scored:  annotations[kyvernov1.AnnotationPolicyScored] != "false",
 			Timestamp: metav1.Timestamp{
 				Seconds: time.Now().Unix(),
 			},
-			Category: annotations[kyverno.AnnotationPolicyCategory],
-			Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
+			Category: annotations[kyvernov1.AnnotationPolicyCategory],
+			Severity: severityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
 		}
 		pss := ruleResult.PodSecurityChecks()
 		if pss != nil {

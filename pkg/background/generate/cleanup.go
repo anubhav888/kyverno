@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -62,7 +61,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 			common.GeneratePolicyLabel:          policy.GetName(),
 			common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
 			common.GenerateRuleLabel:            rule.Name,
-			kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+			kyvernov1.LabelAppManagedBy:         kyvernov1.ValueKyvernoApp,
 		}
 
 		downstreams, err := c.getDownstreams(rule, labels, ur)

@@ -252,21 +252,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	// Apply the generate rule on resource
-	genResources, err := c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
-
-	// generate events.
-	if err == nil {
-		for _, res := range genResources {
-			e := event.NewResourceGenerationEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, res)
-			c.eventGen.Add(e)
-		}
-
-		unstructuredPol := kubeutils.NewUnstructured("kyverno.io/v1", policy.GetKind(), policy.GetNamespace(), policy.GetName())
-		e := event.NewBackgroundSuccessEvent(ur.Spec.Policy, ur.Spec.Rule, event.GeneratePolicyController, unstructuredPol)
-		c.eventGen.Add(e...)
-	}
-
-	return genResources, err
+	return c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy

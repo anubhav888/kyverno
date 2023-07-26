@@ -150,8 +150,7 @@ const (
 	Skip UpdateRequestState = "Skip"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // UpdateRequestList contains a list of UpdateRequest
 type UpdateRequestList struct {

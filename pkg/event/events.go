@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -46,13 +45,6 @@ func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 		return "Policy"
 	}
 	return "ClusterPolicy"
-}
-
-func getCleanupPolicyKind(policy kyvernov2alpha1.CleanupPolicyInterface) string {
-	if policy.IsNamespaced() {
-		return "CleanupPolicy"
-	}
-	return "ClusterCleanupPolicy"
 }
 
 func NewPolicyAppliedEvent(source Source, engineResponse engineapi.EngineResponse) Info {
@@ -105,19 +97,6 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse engi
 	}
 }
 
-func NewResourceGenerationEvent(policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {
-	msg := fmt.Sprintf("Created %s %s as a result of applying policy %s/%s", resource.GetKind(), resource.GetName(), policy, rule)
-
-	return Info{
-		Kind:      resource.GetKind(),
-		Namespace: resource.GetNamespace(),
-		Name:      resource.GetName(),
-		Source:    source,
-		Reason:    PolicyApplied,
-		Message:   msg,
-	}
-}
-
 func NewBackgroundFailedEvent(err error, policy, rule string, source Source, r *unstructured.Unstructured) []Info {
 	if r == nil {
 		return nil
@@ -142,12 +121,7 @@ func NewBackgroundSuccessEvent(policy, rule string, source Source, r *unstructur
 	}
 
 	var events []Info
-	msg := "resource generated"
-
-	if source == MutateExistingController {
-		msg = "resource mutated"
-	}
-
+	msg := fmt.Sprintf("policy %s/%s applied", policy, rule)
 	events = append(events, Info{
 		Kind:      r.GetKind(),
 		Namespace: r.GetNamespace(),
@@ -187,28 +161,6 @@ func NewPolicyExceptionEvents(engineResponse engineapi.EngineResponse, ruleResp 
 		Source:    source,
 	}
 	return []Info{policyEvent, exceptionEvent}
-}
-
-func NewCleanupPolicyEvent(policy kyvernov2alpha1.CleanupPolicyInterface, resource unstructured.Unstructured, err error) Info {
-	if err == nil {
-		return Info{
-			Kind:      getCleanupPolicyKind(policy),
-			Namespace: policy.GetNamespace(),
-			Name:      policy.GetName(),
-			Source:    CleanupController,
-			Reason:    PolicyApplied,
-			Message:   fmt.Sprintf("successfully cleaned up the target resource %v/%v/%v", resource.GetKind(), resource.GetNamespace(), resource.GetName()),
-		}
-	} else {
-		return Info{
-			Kind:      getCleanupPolicyKind(policy),
-			Namespace: policy.GetNamespace(),
-			Name:      policy.GetName(),
-			Source:    CleanupController,
-			Reason:    PolicyError,
-			Message:   fmt.Sprintf("failed to clean up the target resource %v/%v/%v: %v", resource.GetKind(), resource.GetNamespace(), resource.GetName(), err.Error()),
-		}
-	}
 }
 
 func NewFailedEvent(err error, policy, rule string, source Source, resource kyvernov1.ResourceSpec) Info {

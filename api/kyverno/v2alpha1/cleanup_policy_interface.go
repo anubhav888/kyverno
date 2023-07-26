@@ -6,11 +6,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// CleanupPolicyInterface abstracts the concrete policy type (CleanupPolicy vs ClusterCleanupPolicy)
+// CleanupPolicyInterface abstracts the concrete policy type (Policy vs ClusterPolicy)
 // +kubebuilder:object:generate=false
 type CleanupPolicyInterface interface {
 	metav1.Object
-	IsNamespaced() bool
 	GetSpec() *CleanupPolicySpec
 	GetStatus() *CleanupPolicyStatus
 	Validate(sets.Set[string]) field.ErrorList

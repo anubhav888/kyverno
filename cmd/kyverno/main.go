@@ -25,7 +25,6 @@ import (
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -44,7 +43,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeinformers "k8s.io/client-go/informers"
-	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -54,10 +52,10 @@ const (
 	exceptionWebhookControllerName = "exception-webhook-controller"
 )
 
-func showWarnings(ctx context.Context, logger logr.Logger) {
+func showWarnings(logger logr.Logger) {
 	logger = logger.WithName("warnings")
 	// log if `forceFailurePolicyIgnore` flag has been set or not
-	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
+	if toggle.ForceFailurePolicyIgnore.Enabled() {
 		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
 }
@@ -107,8 +105,6 @@ func createrLeaderControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	caInformer corev1informers.SecretInformer,
-	tlsInformer corev1informers.SecretInformer,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
 	dynamicClient dclient.Interface,
@@ -118,8 +114,7 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	certManager := certmanager.NewController(
-		caInformer,
-		tlsInformer,
+		kubeKyvernoInformer.Core().V1().Secrets(),
 		certRenewer,
 	)
 	webhookController := webhookcontroller.NewController(
@@ -132,7 +127,7 @@ func createrLeaderControllers(
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
-		caInformer,
+		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		serverIP,
@@ -147,7 +142,7 @@ func createrLeaderControllers(
 		exceptionWebhookControllerName,
 		kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-		caInformer,
+		kubeKyvernoInformer.Core().V1().Secrets(),
 		config.ExceptionValidatingWebhookConfigurationName,
 		config.ExceptionValidatingWebhookServicePath,
 		serverIP,
@@ -227,14 +222,8 @@ func main() {
 	// setup
 	signalCtx, setup, sdown := internal.Setup(appConfig, "kyverno-admission-controller", false)
 	defer sdown()
-	caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tls.GenerateRootCASecretName(), resyncPeriod)
-	tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tls.GenerateTLSPairSecretName(), resyncPeriod)
-	if !informers.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, caSecret, tlsSecret) {
-		setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
-		os.Exit(1)
-	}
 	// show version
-	showWarnings(signalCtx, setup.Logger)
+	showWarnings(setup.Logger)
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
@@ -247,6 +236,7 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
 	if err != nil {
 		setup.Logger.Error(err, "Failed to create openapi manager")
@@ -255,6 +245,7 @@ func main() {
 	var wg sync.WaitGroup
 	certRenewer := tls.NewCertRenewer(
 		setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		secretLister,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
@@ -310,7 +301,6 @@ func main() {
 		setup.RegistryClient,
 		setup.KubeClient,
 		setup.KyvernoClient,
-		setup.RegistrySecretLister,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -350,6 +340,7 @@ func main() {
 			logger := setup.Logger.WithName("leader")
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
+			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 			// create leader controllers
 			leaderControllers, warmup, err := createrLeaderControllers(
@@ -360,8 +351,6 @@ func main() {
 				kubeInformer,
 				kubeKyvernoInformer,
 				kyvernoInformer,
-				caSecret,
-				tlsSecret,
 				setup.KubeClient,
 				setup.KyvernoClient,
 				setup.KyvernoDynamicClient,
@@ -426,6 +415,7 @@ func main() {
 		engine,
 		setup.KyvernoDynamicClient,
 		setup.KyvernoClient,
+		setup.RegistryClient,
 		setup.Configuration,
 		setup.MetricsManager,
 		policyCache,
@@ -445,7 +435,6 @@ func main() {
 		Namespace: internal.ExceptionNamespace(),
 	})
 	server := webhooks.NewServer(
-		signalCtx,
 		policyHandlers,
 		resourceHandlers,
 		exceptionHandlers,
@@ -455,7 +444,7 @@ func main() {
 			DumpPayload: dumpPayload,
 		},
 		func() ([]byte, []byte, error) {
-			secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
+			secret, err := secretLister.Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
 				return nil, nil, err
 			}

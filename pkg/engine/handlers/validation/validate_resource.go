@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	gojmespath "github.com/kyverno/go-jmespath"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -129,7 +129,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return ruleResponse
 	}
 
-	v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
+	v.log.V(2).Info("invalid validation rule: podSecurity, patterns, or deny expected")
 	return nil
 }
 
